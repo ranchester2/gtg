@@ -29,6 +29,7 @@ from datetime import date, datetime, timedelta, timezone
 from enum import Enum
 from gettext import gettext as _
 from gettext import ngettext
+from gi.repository import GObject
 
 __all__ = ['Date', 'Accuracy']
 
@@ -102,7 +103,7 @@ DATE_FORMATS = [(locale.nl_langinfo(locale.D_T_FMT), Accuracy.datetime),
                 ('%Y-%m-%d', Accuracy.date)]
 
 
-class Date:
+class Date(GObject.Object):
     """A date class that supports fuzzy dates.
 
     A Date can be constructed with:
@@ -117,6 +118,7 @@ class Date:
     __slots__ = ['dt_value']
 
     def __init__(self, value=None):
+        super().__init__()
         self.dt_value = None
         if isinstance(value, (date, datetime)):
             self.dt_value = value

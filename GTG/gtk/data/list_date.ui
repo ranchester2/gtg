@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0" />
+  <template class="DateRow" parent="GtkBox">
+    <child>
+      <object class="ContextMenuBin">
+        <property name="hexpand">True</property>
+        <binding name="model">
+          <lookup name="menu_model">DateRow</lookup>
+        </binding>
+        <property name="child">
+          <object class="TagBackgroundBin">
+            <binding name="task">
+              <lookup name="task">DateRow</lookup>
+            </binding>
+            <binding name="requester">
+              <lookup name="requester">DateRow</lookup>
+            </binding>
+            <property name="child">
+              <object class="GtkLabel">
+                <property name="xalign">0</property>
+                <binding name="label">
+                  <lookup name="readable-date">DateRow</lookup>
+                </binding>
+              </object>
+            </property>
+          </object>
+        </property>
+      </object>
+    </child>
+  </template>
+</interface>

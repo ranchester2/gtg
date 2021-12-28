@@ -1,0 +1,116 @@
+From d0f6649eb7312c3237bf583dfcc098155ae1b8f6 Mon Sep 17 00:00:00 2001
+From: Raidro Manchester <raibo.quadrofus@gmail.com>
+Date: Thu, 30 Dec 2021 14:05:12 +0200
+Subject: [PATCH] treelistrow: don't show expander with no children
+
+It may be wanted to not show the arrow if there is a possibility
+of children appearing in the future, but there aren't currently.
+
+It now takes that account when determining wether it is expandable,
+and rechecks every time the child list changes.
+---
+ gtk/gtktreeexpander.c  | 30 ++++++++++++++++++++++++++++++
+ gtk/gtktreelistmodel.c |  9 ++++++---
+ 2 files changed, 36 insertions(+), 3 deletions(-)
+
+diff --git a/gtk/gtktreeexpander.c b/gtk/gtktreeexpander.c
+index 2b4e8b415d..e6a9ddaefb 100644
+--- a/gtk/gtktreeexpander.c
++++ b/gtk/gtktreeexpander.c
+@@ -80,10 +80,12 @@ struct _GtkTreeExpander
+   GtkWidget parent_instance;
+ 
+   GtkTreeListRow *list_row;
++  GListModel *list_row_model;
+   GtkWidget *child;
+ 
+   GtkWidget *expander_icon;
+   guint notify_handler;
++  guint items_changed_handler;
+ 
+   gboolean indent_for_icon;
+ 
+@@ -302,6 +304,16 @@ gtk_tree_expander_list_row_notify_cb (GtkTreeListRow  *list_row,
+     }
+ }
+ 
++static void
++gtk_tree_expander_list_row_items_changed_cb (GListModel      *list_model,
++                                             guint           *position,
++                                             guint           *removed,
++                                             guint           *added,
++                                             GtkTreeExpander *self)
++{
++  gtk_tree_expander_update_for_list_row (self);
++}
++
+ static gboolean
+ gtk_tree_expander_focus (GtkWidget        *widget,
+                          GtkDirectionType  direction)
+@@ -357,6 +369,13 @@ gtk_tree_expander_clear_list_row (GtkTreeExpander *self)
+   g_signal_handler_disconnect (self->list_row, self->notify_handler);
+   self->notify_handler = 0;
+   g_clear_object (&self->list_row);
++
++  if (self->list_row_model == NULL)
++    return;
++
++  g_signal_handler_disconnect (self->list_row_model, self->items_changed_handler);
++  self->items_changed_handler = 0;
++  g_clear_object (&self->list_row_model);
+ }
+ 
+ static void
+@@ -830,6 +849,7 @@ void
+ gtk_tree_expander_set_list_row (GtkTreeExpander *self,
+                                 GtkTreeListRow  *list_row)
+ {
++  GListModel *model;
+   g_return_if_fail (GTK_IS_TREE_EXPANDER (self));
+   g_return_if_fail (list_row == NULL || GTK_IS_TREE_LIST_ROW (list_row));
+ 
+@@ -847,6 +867,16 @@ gtk_tree_expander_set_list_row (GtkTreeExpander *self,
+                                                "notify",
+                                                G_CALLBACK (gtk_tree_expander_list_row_notify_cb),
+                                                self);
++
++      model = gtk_tree_list_row_get_children (list_row);
++      if (model)
++        {
++          self->list_row_model = g_object_ref (model);
++          self->items_changed_handler = g_signal_connect (model,
++                                                          "items-changed",
++                                                          G_CALLBACK (gtk_tree_expander_list_row_items_changed_cb),
++                                                          self);
++        }
+     }
+ 
+   gtk_tree_expander_update_for_list_row (self);
+diff --git a/gtk/gtktreelistmodel.c b/gtk/gtktreelistmodel.c
+index 35f1fe3ab0..583a733587 100644
+--- a/gtk/gtktreelistmodel.c
++++ b/gtk/gtktreelistmodel.c
+@@ -1268,14 +1268,17 @@ gtk_tree_list_row_is_expandable (GtkTreeListRow *self)
+     return FALSE;
+ 
+   if (self->node->model)
+-    return TRUE;
++    return g_list_model_get_n_items(self->node->model);
+ 
+   list = tree_node_get_tree_list_model (self->node);
+   model = tree_node_create_model (list, self->node);
+   if (model)
+     {
+-      g_object_unref (model);
+-      return TRUE;
++      if (g_list_model_get_n_items (model))
++        {
++          g_object_unref (model);
++          return TRUE;
++        }
+     }
+ 
+   return FALSE;
+-- 
+2.33.1
+

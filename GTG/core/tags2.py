@@ -19,7 +19,7 @@
 """Everything related to tags."""
 
 
-from gi.repository import GObject
+from gi.repository import GObject, Gio
 
 from uuid import uuid4, UUID
 import logging
@@ -37,17 +37,20 @@ class Tag2(GObject.Object):
     """A tag that can be applied to a Task."""
 
     __gtype_name__ = 'gtg_Tag'
-    __slots__ = ['id', 'name', 'icon', 'color', 'actionable', 'children']
+    __slots__ = ['id', 'icon', 'actionable', 'children']
 
+    name = GObject.Property(type=str)
+    color = GObject.Property(type=str)
 
     def __init__(self, id: UUID, name: str) -> None:
+        super().__init__()
         self.id = id
         self.name = name
 
         self.icon = None
         self.color = None
         self.actionable = True
-        self.children = []
+        self.children = Gio.ListStore.new(self)
         self.parent = None
 
 

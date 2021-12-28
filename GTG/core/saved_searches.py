@@ -40,6 +40,7 @@ class SavedSearch(GObject.Object):
 
 
     def __init__(self, id: UUID, name: str, query: str) -> None:
+        super().__init__()
         self.id = id
         self.name = name
         self.query = query
@@ -154,10 +155,6 @@ class SavedSearchStore(BaseStore):
         search_id = uuid4()
         search = SavedSearch(id=search_id, name=name, query=query)
 
-        if parent:
-            self.add(search, parent)
-        else:
-            self.data.append(search)
-            self.lookup[search_id] = search
+        self.add(search, parent)
 
         return search

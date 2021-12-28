@@ -32,6 +32,8 @@ from GTG.core.tags2 import TagStore
 from GTG.core.saved_searches import SavedSearchStore
 from GTG.core import firstrun_tasks
 from GTG.core.dates import Date
+from GTG.core.requester import Requester
+from GTG.core.config import CoreConfig
 from GTG.backends.backend_signals import BackendSignals
 from GTG.backends.generic_backend import GenericBackend
 import GTG.core.info as info
@@ -57,6 +59,9 @@ class Datastore2:
         self._mutex = threading.Lock()
         self.backends = {}
         self._backend_signals = BackendSignals()
+
+        self.config = CoreConfig()
+        self.requester = Requester(self, self.config)
 
         # When a backup has to be used, this will be filled with
         # info on the backup used
@@ -164,7 +169,8 @@ class Datastore2:
         except FileNotFoundError:
             pass
 
-        self.write_backups(path)
+        # FIXME: path will never be a directory
+        #self.write_backups(path)
 
 
     def print_info(self) -> None:
@@ -363,6 +369,14 @@ class Datastore2:
             if count == 0 and not customized:
                 self.tags.remove(tag.id)
 
+    def get_requester(self):
+        """
+        Return the Requester associate with this DataStore
+
+        @returns GTG.core.requester.Requester: the requester associated with
+                                               this datastore
+        """
+        return self.requester
 
     # --------------------------------------------------------------------------
     # BACKENDS
@@ -669,7 +683,7 @@ class Datastore2:
             task.content = content
 
             if random_boolean():
-                task.date_start = random_date()
+                task.date_start = Date(random_date())
 
             if random_boolean():
                 task.date_due = Date(random_date())

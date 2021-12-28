@@ -25,6 +25,7 @@ import os
 import re
 import logging
 
+from gi.repository import GObject
 from GTG.core.dirs import CONFIG_DIR
 
 log = logging.getLogger(__name__)
@@ -93,7 +94,7 @@ def open_config_file(config_file):
 class SectionConfig():
     """ Configuration only for a section (system or a task) """
 
-    def __init__(self, section_name, section, defaults, save_function):
+    def __init__(self, section_name, section, defaults, save_function, inform_edit_func):
         """ Initiatizes section config:
 
          - section_name: name for writing error logs
@@ -106,6 +107,7 @@ class SectionConfig():
         self._section = section
         self._defaults = defaults
         self._save_function = save_function
+        self._inform_edit_func = inform_edit_func
 
     def _getlist(self, option):
         """ Parses string representation of list from configuration
@@ -174,6 +176,7 @@ class SectionConfig():
         else:
             value = str(value)
         self._section[option] = value
+        self._inform_edit_func(option)
         # Immediately save the configuration
         self.save()
 
@@ -181,10 +184,17 @@ class SectionConfig():
         self._save_function()
 
 
-class CoreConfig():
-    """ Class holding configuration to all systems and tasks """
+class CoreConfig(GObject.Object):
+    """
+    Class holding configuration to all systems and tasks
+    Signals:
+    ::config-changed: When a configuration option in any section has been changed
+    """
+
+    __gsignals__ = {'config-changed': (GObject.SignalFlags.RUN_FIRST, None, (str,))}
 
     def __init__(self):
+        super().__init__()
         self._conf_path = os.path.join(CONFIG_DIR, 'gtg.conf')
         self._conf = open_config_file(self._conf_path)
 
@@ -193,6 +203,9 @@ class CoreConfig():
 
         self._backends_conf_path = os.path.join(CONFIG_DIR, 'backends.conf')
         self._backends_conf = open_config_file(self._backends_conf_path)
+
+    def inform_change(self, option: str):
+        self.emit("config-changed", option)
 
     def save_gtg_config(self):
         self._conf.write(open(self._conf_path, 'w'))
@@ -209,16 +222,22 @@ class CoreConfig():
             self._conf.add_section(name)
         defaults = DEFAULTS.get(name, dict())
         return SectionConfig(
-            name, self._conf[name], defaults, self.save_gtg_config)
+            name, self._conf[name], defaults, self.save_gtg_config, self.inform_change)
 
     def get_task_config(self, task_id):
         if task_id not in self._task_conf:
-            self._task_conf.add_section(task_id)
+            try:
+                self._task_conf.add_section(str(task_id))
+            # FIXME: has_section claims it doesn't exist,
+            # to reproduce, add subtask, and then open subtask again.
+            except configparser.DuplicateSectionError:
+                pass
         return SectionConfig(
             f'Task {task_id}',
-            self._task_conf[task_id],
+            self._task_conf[str(task_id)],
             DEFAULTS['task'],
-            self.save_task_config)
+            self.save_task_config,
+            self.inform_change)
 
     def get_all_backends(self):
         return self._backends_conf.sections()
@@ -231,4 +250,6 @@ class CoreConfig():
             f'Backend {backend}',
             self._backends_conf[backend],
             DEFAULTS['backend'],
-            self.save_backends_config)
+            self.save_backends_config,
+            self.inform_change)
+

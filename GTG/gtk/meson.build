@@ -30,7 +30,12 @@ gtg_backend_parameters_ui_sources = [
 gtg_browser_sources = [
   'browser/__init__.py',
   'browser/backend_infobar.py',
-  'browser/cell_renderer_tags.py',
+  'browser/filtering.py',
+  'browser/sorting.py',
+  'browser/sidebar.py',
+  'browser/context_menu_bin.py',
+  'browser/tag_background_bin.py',
+  'browser/tags_display.py',
   'browser/delete_tag.py',
   'browser/delete_task.py',
   'browser/main_window.py',
@@ -38,7 +43,7 @@ gtg_browser_sources = [
   'browser/simple_color_selector.py',
   'browser/tag_context_menu.py',
   'browser/tag_editor.py',
-  'browser/treeview_factory.py',
+  'browser/tasks_view.py',
   'browser/quick_add.py',
 ]
 
@@ -54,7 +59,13 @@ gtg_data_sources = [
   'data/style.css',
   'data/tag_editor.ui',
   'data/task_editor.ui',
-  'data/recurring_menu.ui'
+  'data/recurring_menu.ui',
+  'data/list_tags.ui',
+  'data/list_task.ui',
+  'data/list_date.ui',
+  'data/sidebar_entry.ui',
+  'data/sidebar_tag.ui',
+  'data/sidebar_category.ui'
 ]
 
 gtg_editor_sources = [

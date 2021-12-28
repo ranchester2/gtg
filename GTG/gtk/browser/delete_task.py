@@ -55,12 +55,6 @@ class DeletionUI():
                 self.req.delete_task(tid, recursive=True)
 
         self.tids_todelete = []
-
-        # Update tags
-        for tagname in self.update_tags:
-            tag = self.req.get_tag(tagname)
-            tag.modified()
-
         self.update_tags = []
 
     def recursive_list_tasks(self, tasklist, root):
@@ -73,12 +67,12 @@ class DeletionUI():
         if root not in tasklist:
             tasklist.append(root)
 
-            [self.update_tags.append(tagname)
-             for tagname in root.get_tags_name()
-             if tagname not in self.update_tags]
+            [self.update_tags.append(tag.name)
+             for tag in root.tags
+             if tag.name not in self.update_tags]
 
             [self.recursive_list_tasks(tasklist, i)
-             for i in root.get_subtasks() if i not in tasklist]
+             for i in root.children if i not in tasklist]
 
 
     def show_async(self, tids=None, callback=None):
@@ -121,7 +115,7 @@ class DeletionUI():
             tasks = tasklist
             titles_suffix = ""
 
-        titles = "".join("\n• " + task.get_title() for task in tasks)
+        titles = "".join("\n• " + task.title for task in tasks)
 
         # Build and run dialog
         dialog = Gtk.MessageDialog(transient_for=self.window, modal=True)

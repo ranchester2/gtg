@@ -36,7 +36,8 @@ from GTG.core.plugins.engine import PluginEngine
 from GTG.core.plugins.api import PluginAPI
 from GTG.backends import BackendFactory
 from GTG.core.datastore import DataStore
-from GTG.core.dirs import CSS_DIR
+from GTG.core.datastore2 import Datastore2
+from GTG.core.dirs import CSS_DIR, DATA_DIR
 from GTG.core.dates import Date
 from GTG.gtk.backends import BackendsDialog
 from GTG.gtk.browser.tag_editor import TagEditor
@@ -105,13 +106,11 @@ class Application(Gtk.Application):
             Gtk.Window.set_default_icon_name(self.props.application_id)
 
             # Register backends
-            datastore = DataStore()
+            datastore = Datastore2()
 
-            for backend_dic in BackendFactory().get_saved_backends_list():
-                datastore.register_backend(backend_dic)
-
-            # Save the backends directly to be sure projects.xml is written
-            datastore.save(quit=False)
+            #for backend_dic in BackendFactory().get_saved_backends_list():
+            #    datastore.register_backend(backend_dic)
+            datastore.load_file(os.path.join(DATA_DIR, "gtg_data.xml"))
 
             self.req = datastore.get_requester()
 
@@ -140,6 +139,10 @@ class Application(Gtk.Application):
 
     def do_activate(self):
         """Callback when launched from the desktop."""
+
+        import cProfile
+        self.pr = cProfile.Profile()
+        self.pr.enable()
 
         if self._check_exception():
             return
@@ -488,21 +491,9 @@ class Application(Gtk.Application):
             self.delete_task_dialog = DeletionUI(self.req, window)
 
         def on_show_async_callback(tasks_to_delete):
-            [self.close_task(task.get_id()) for task in tasks_to_delete
-            if task.get_id() in self.open_tasks]
+            [self.close_task(task.id) for task in tasks_to_delete
+            if task.id in self.open_tasks]
         self.delete_task_dialog.show_async(tids, on_show_async_callback)
-
-    def open_tag_editor(self, tag):
-        """Open Tag editor dialog."""
-
-        self.edit_tag_dialog = TagEditor(self.req, self, tag)
-        self.edit_tag_dialog.set_transient_for(self.browser)
-        self.edit_tag_dialog.insert_action_group('app', self)
-
-    def close_tag_editor(self):
-        """Close tag editor dialog."""
-
-        self.edit_tag_dialog = None
 
     def select_tag(self, tag):
         """Select a tag in the browser."""
@@ -631,6 +622,12 @@ class Application(Gtk.Application):
 
     def do_shutdown(self):
         """Callback when GTG is closed."""
+
+        import pstats
+        self.pr.disable()
+        sortby = pstats.SortKey.CUMULATIVE
+        ps = pstats.Stats(self.pr).sort_stats(sortby)
+        ps.print_stats(20)
 
         self.save_plugin_settings()
 

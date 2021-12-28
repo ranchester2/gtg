@@ -19,7 +19,7 @@
 """Base for all store classes."""
 
 
-from gi.repository import GObject
+from gi.repository import GObject, Gio, Gtk
 
 from uuid import UUID
 import logging
@@ -30,8 +30,45 @@ from typing import List, Any, Dict
 
 log = logging.getLogger(__name__)
 
+# -----------------------------------------------------------------------------
+# OVERRIDEN GLISTSTORE
+# -----------------------------------------------------------------------------
 
-class BaseStore(GObject.Object):
+class ContrListStore(Gio.ListStore):
+    """
+    A GListModelImplementation where you can easily do additional
+    stuff when an item has been added/removed
+    """
+    def __init__(self, add_func, remove_func):
+        super().__init__()
+        self._add_func = add_func
+        self._rem_func = remove_func
+
+    def append(self, item):
+        self._add_func(item)
+        Gio.ListStore.append(self, item)
+
+    def insert(self, position, item):
+        Gio.ListStore.insert(self, position, item)
+
+    def splice(self, position, n_removals, additions):
+        for x in range(n_removals):
+            self._rem_func(self.get_item(position + x))
+        Gio.ListStore.splice(self, position, n_removals, additions)
+        for addition in additions:
+            self._add_func(addition)
+
+    def remove(self, position):
+        self._rem_func(self.get_item(position))
+        Gio.ListStore.remove(self, position)
+
+    def remove_all(self):
+        for item in self:
+            self._rem_func(item)
+        Gio.ListStore.remove_all(self)
+
+
+class BaseStore(GObject.Object, Gio.ListModel):
     """Base class for data stores."""
 
 
@@ -40,6 +77,28 @@ class BaseStore(GObject.Object):
         self.data: List[Any] = []
 
         super().__init__()
+
+    # --------------------------------------------------------------------------
+    # GLISTMODEL
+    # --------------------------------------------------------------------------
+
+    # Why not just use find_with_equal_func:
+    # https://gitlab.gnome.org/GNOME/pygobject/-/issues/493
+    def _find_item_with_glist(self, list: Gio.ListModel, item: GObject.Object):
+        for i, listitem in enumerate(list):
+            if item == listitem:
+                return i
+
+    def do_get_item(self, position: int) -> Any:
+        if position >= len(self):
+            return None
+        return self.data[position]
+
+    def do_get_item_type(self) -> GObject.GType:
+        return self.data[0].__gtype__
+
+    def do_get_n_items(self) -> int:
+        return len(self.data)
 
     # --------------------------------------------------------------------------
     # BASIC MANIPULATION
@@ -74,22 +133,47 @@ class BaseStore(GObject.Object):
                          'parent not found!'), item.id, parent_id)
                 raise
 
+        # The store handles this only for toplevels, the items handle it for their
+        # children
         else:
+            if hasattr(item, "child_filters") and self.data:
+                # We should automatically copy the existing filters if
+                # possible
+                reference = self.data[0]
+                for name, filtermodel in reference.child_filters.items():
+                    item.child_filters[name] = Gtk.FilterListModel.new(
+                        item.children, filtermodel.get_filter()
+                    )
             self.data.append(item)
+            self.emit('added', item)
+            try:
+                item.__store_reserved_watch_sigid = item.connect(
+                    'filter_dependant_changed', self._on_item_filter_dependant_change
+                )
+            # Type is not one that requires this signal
+            except TypeError:
+                pass
 
         self.lookup[item.id] = item
+
         log.debug('Added %s', item)
 
+    def _on_item_filter_dependant_change(self, item):
+        if item in self.data:
+            index = self.data.index(item)
+            self.items_changed(index, 1, 1)
 
     @GObject.Signal(name='added', arg_types=(object,))
-    def add_signal(self, *_):
+    def add_signal(self, item):
         """Signal to emit when adding a new item."""
+        self.items_changed(self.data.index(item), 0, 1)
 
 
-    @GObject.Signal(name='removed', arg_types=(str,))
-    def remove_signal(self, *_):
+    @GObject.Signal(name='removed', arg_types=(str,int,bool))
+    def remove_signal(self, item_id, item_position, was_toplevel):
         """Signal to emit when removing a new item."""
-
+        if was_toplevel:
+            self.items_changed(item_position, 1, 0)
 
     @GObject.Signal(name='parent-change', arg_types=(object, object))
     def parent_change_signal(self, *_):
@@ -104,20 +188,33 @@ class BaseStore(GObject.Object):
     def remove(self, item_id: UUID) -> None:
         """Remove an existing item from the store."""
 
+        original_position = 0
+        # Instead of not giving original position, as signal
+        # int arguments must be unsigned ints.
+        was_toplevel = False
         item = self.lookup[item_id]
         parent = item.parent
+        if not parent:
+            original_position = self.data.index(self.lookup[item_id])
+            was_toplevel = True
 
         for child in item.children:
             del self.lookup[child.id]
 
         if parent:
-            parent.children.remove(item)
+            parent.children.remove(self._find_item_with_glist(parent.children, item))
             del self.lookup[item_id]
         else:
             self.data.remove(item)
             del self.lookup[item_id]
 
-        self.emit('removed', str(item_id))
+        try:
+            item.disconnect(item.__store_reserved_watch_sigid)
+        # Does not have filter dependant changability
+        except AttributeError:
+            pass
+
+        self.emit('removed', item_id, original_position, was_toplevel)
 
 
     # --------------------------------------------------------------------------
@@ -133,7 +230,9 @@ class BaseStore(GObject.Object):
             raise
 
         try:
+            original_position = self.data.index(item)
             self.data.remove(item)
+            self.emit('removed', item.id, original_position, True)
             self.lookup[parent_id].children.append(item)
             item.parent = self.lookup[parent_id]
 
@@ -148,8 +247,11 @@ class BaseStore(GObject.Object):
         for child in self.lookup[parent_id].children:
             if child.id == item_id:
                 self.data.append(child)
-                self.lookup[parent_id].children.remove(child)
+                self.lookup[parent_id].children.remove(
+                    self._find_item_with_glist(self.lookup[parent_id].children, child)
+                )
                 child.parent = None
+                self.emit('added', child)
 
                 self.emit('parent-removed',
                           self.lookup[item_id],

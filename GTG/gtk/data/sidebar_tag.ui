@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0" />
+  <!-- AdwBin would make more sense for this -->
+  <template class="GTGSidebarTagRow" parent="GtkBox">
+    <child>
+      <object class="ContextMenuBin">
+        <property name="hexpand">True</property>
+        <binding name="model">
+          <lookup name="menu-model">GTGSidebarTagRow</lookup>
+        </binding>
+        <property name="child">
+          <object class="GtkBox">
+            <child>
+              <object class="IndentOnlyExpander" id="_indent_expander">
+                <!-- The list starts at level 1 as categories are part of the tree -->
+                <property name="ignore_count">1</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkBox">
+                <property name="spacing">12</property>
+                <child>
+                  <object class="TagPill">
+                    <binding name="tag">
+                      <lookup name="tag">GTGSidebarTagRow</lookup>
+                    </binding>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="ellipsize">end</property>
+                    <binding name="label">
+                      <lookup name="name" type="gtg_Tag">
+                        <lookup name="tag">GTGSidebarTagRow</lookup>
+                      </lookup>
+                    </binding>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkTreeExpander" id="_arrow_expander">
+                    <property name="hexpand">True</property>
+                    <property name="halign">end</property>
+                    <style>
+                      <class name="arrow-only-expander"/>
+                    </style>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </property>
+      </object>
+    </child>
+  </template>
+</interface>

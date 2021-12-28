@@ -1,0 +1,146 @@
+From 832caf93827c73590b764bea4ea3c6901a3e1d11 Mon Sep 17 00:00:00 2001
+From: Raidro Manchester <raibo.quadrofus@gmail.com>
+Date: Fri, 31 Dec 2021 12:38:11 +0200
+Subject: [PATCH] gtkcolumnviewcolumn: expose if sorting is inverted
+
+It may be sometimes needed to change the sorter on the fly depending on
+if it is inverted or not
+
+It is now responsibility of the user to change the sorter
+---
+ gtk/gtkcolumnviewcolumn.c        | 40 ++++++++++++++++++++++++++++++++
+ gtk/gtkcolumnviewcolumnprivate.h |  2 ++
+ gtk/gtkcolumnviewsorter.c        |  3 +++
+ gtk/gtkcolumnviewtitle.c         |  2 ++
+ 4 files changed, 47 insertions(+)
+
+diff --git a/gtk/gtkcolumnviewcolumn.c b/gtk/gtkcolumnviewcolumn.c
+index ad62b34eca..fe31bc718a 100644
+--- a/gtk/gtkcolumnviewcolumn.c
++++ b/gtk/gtkcolumnviewcolumn.c
+@@ -72,6 +72,7 @@ struct _GtkColumnViewColumn
+   int fixed_width;
+ 
+   guint visible     : 1;
++  guint inverted     : 1;
+   guint resizable   : 1;
+   guint expand      : 1;
+ 
+@@ -94,6 +95,7 @@ enum
+   PROP_TITLE,
+   PROP_SORTER,
+   PROP_VISIBLE,
++  PROP_INVERTED,
+   PROP_HEADER_MENU,
+   PROP_RESIZABLE,
+   PROP_EXPAND,
+@@ -152,6 +154,10 @@ gtk_column_view_column_get_property (GObject    *object,
+       g_value_set_boolean (value, self->visible);
+       break;
+ 
++    case PROP_INVERTED:
++      g_value_set_boolean (value, self->inverted);
++      break;
++
+     case PROP_HEADER_MENU:
+       g_value_set_object (value, self->menu);
+       break;
+@@ -200,6 +206,10 @@ gtk_column_view_column_set_property (GObject      *object,
+       gtk_column_view_column_set_visible (self, g_value_get_boolean (value));
+       break;
+ 
++    case PROP_INVERTED:
++      gtk_column_view_column_set_inverted (self, g_value_get_boolean (value));
++      break;
++
+     case PROP_HEADER_MENU:
+       gtk_column_view_column_set_header_menu (self, g_value_get_object (value));
+       break;
+@@ -290,6 +300,17 @@ gtk_column_view_column_class_init (GtkColumnViewColumnClass *klass)
+                           P_("Whether this column is visible"),
+                           TRUE,
+                           G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
++  /**
++   * GtkColumnViewColumn:inverted: .
++   *
++   * Whether the sorting order in this column is inverted.
++   */
++  properties[PROP_INVERTED] =
++    g_param_spec_boolean ("inverted",
++                          P_("Inverted"),
++                          P_("Wether the sorting order is inverted"),
++                          TRUE,
++                          G_PARAM_READABLE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
+ 
+   /**
+    * GtkColumnViewColumn:header-menu: (attributes org.gtk.Property.get=gtk_column_view_column_get_header_menu org.gtk.Property.set=gtk_column_view_column_set_header_menu)
+@@ -795,6 +816,25 @@ gtk_column_view_column_notify_sort (GtkColumnViewColumn *self)
+     gtk_column_view_title_update (GTK_COLUMN_VIEW_TITLE (self->header));
+ }
+ 
++/**
++ * gtk_column_view_column_set_inverted: (attributes org.gtk.Method.set_property=visible)
++ * @self: a `GtkColumnViewColumn`
++ * @inverted: whether this column is currently inverted
++ */
++void
++gtk_column_view_column_set_inverted (GtkColumnViewColumn *self,
++                                     gboolean             inverted)
++{
++  g_return_if_fail (GTK_IS_COLUMN_VIEW_COLUMN (self));
++
++  if (self->inverted == inverted)
++    return;
++
++  self->inverted = inverted;
++
++  g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_INVERTED]);
++}
++
+ /**
+  * gtk_column_view_column_set_visible: (attributes org.gtk.Method.set_property=visible)
+  * @self: a `GtkColumnViewColumn`
+diff --git a/gtk/gtkcolumnviewcolumnprivate.h b/gtk/gtkcolumnviewcolumnprivate.h
+index d71bc8a9dd..1c812542c1 100644
+--- a/gtk/gtkcolumnviewcolumnprivate.h
++++ b/gtk/gtkcolumnviewcolumnprivate.h
+@@ -56,5 +56,7 @@ void                    gtk_column_view_column_set_header_position      (GtkColu
+ void                    gtk_column_view_column_get_header_allocation    (GtkColumnViewColumn    *self,
+                                                                          int                    *offset,
+                                                                          int                    *size);
++void                    gtk_column_view_column_set_inverted             (GtkColumnViewColumn *self,
++                                                                         gboolean             inverted);
+ 
+ #endif  /* __GTK_COLUMN_VIEW_COLUMN_PRIVATE_H__ */
+diff --git a/gtk/gtkcolumnviewsorter.c b/gtk/gtkcolumnviewsorter.c
+index 28f2e7e677..4a0b16b5cc 100644
+--- a/gtk/gtkcolumnviewsorter.c
++++ b/gtk/gtkcolumnviewsorter.c
+@@ -69,8 +69,11 @@ gtk_column_view_sorter_compare (GtkSorter *sorter,
+       Sorter *s = g_sequence_get (iter);
+ 
+       result = gtk_sorter_compare (s->sorter, item1, item2);
++      /*
++      This is implemented by the sorter, not us
+       if (s->inverted)
+         result = - result;
++      */
+ 
+       if (result != GTK_ORDERING_EQUAL)
+         break;
+diff --git a/gtk/gtkcolumnviewtitle.c b/gtk/gtkcolumnviewtitle.c
+index e2e57b29fa..38d2acb662 100644
+--- a/gtk/gtkcolumnviewtitle.c
++++ b/gtk/gtkcolumnviewtitle.c
+@@ -307,6 +307,8 @@ gtk_column_view_title_update (GtkColumnViewTitle *self)
+       view_sorter = GTK_COLUMN_VIEW_SORTER (gtk_column_view_get_sorter (view));
+       active = gtk_column_view_sorter_get_sort_column (view_sorter, &inverted);
+ 
++      gtk_column_view_column_set_inverted (self->column, inverted);
++
+       gtk_widget_show (self->sort);
+       gtk_widget_remove_css_class (self->sort, "ascending");
+       gtk_widget_remove_css_class (self->sort, "descending");
+-- 
+2.33.1
+

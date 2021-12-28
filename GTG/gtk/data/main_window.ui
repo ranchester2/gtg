@@ -242,7 +242,34 @@
       <object class="GtkHeaderBar" id="browser_headerbar">
         <child type="title">
           <object class="GtkStackSwitcher" id="stack_switcher">
-            <property name="stack">stack</property>
+            <property name="stack">view_dummy_stack</property>
+            <child>
+              <object class="GtkStack" id="view_dummy_stack">
+                <property name="visible">False</property>
+                <signal name="notify::visible-child-name" handler="sync_with_view_mode"/>
+                <child>
+                  <object class="GtkStackPage">
+                    <property name="name">open</property>
+                    <property name="title" translatable="yes" context="tasks view name">Open</property>
+                    <property name="child"><object class="GtkBox"/></property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkStackPage">
+                    <property name="name">actionable</property>
+                    <property name="title" translatable="yes" context="tasks view name">Actionable</property>
+                    <property name="child"><object class="GtkBox"/></property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkStackPage">
+                    <property name="name">closed</property>
+                    <property name="title" translatable="yes" context="tasks view name">Closed</property>
+                    <property name="child"><object class="GtkBox"/></property>
+                  </object>
+                </child>
+              </object>
+            </child>
           </object>
         </child>
         <child>
@@ -306,42 +333,12 @@
           <object class="GtkPaned" id="main_hpanes">
             <property name="shrink-start-child">False</property>
             <child>
-              <object class="GtkBox" id="sidebar_vbox">
-                <property name="visible">False</property>
-                <property name="width_request">75</property>
-                <property name="orientation">vertical</property>
-                <child>
-                  <object class="GtkNotebook" id="sidebar_notebook">
-                    <property name="vexpand">True</property>
-                    <property name="margin_top">10</property>
-                    <property name="margin_bottom">10</property>
-                    <property name="tab_pos">bottom</property>
-                    <property name="show_tabs">False</property>
-                    <property name="show_border">False</property>
-                    <child>
-                      <object class="GtkNotebookPage">
-                        <property name="child">
-                          <object class="GtkScrolledWindow" id="sidebar-scroll">
-                            <child>
-                              <placeholder/>
-                            </child>
-                            <style>
-                              <class name="sidebar"/>
-                            </style>
-                          </object>
-                        </property>
-                        <property name="tab">
-                          <object class="GtkLabel" id="tags_tree_label">
-                            <property name="label" translatable="yes">Tags</property>
-                          </object>
-                        </property>
-                      </object>
-                    </child>
-                  </object>
-                </child>
-                <style>
-                  <class name="sidebar"/>
-                </style>
+              <!--
+              Dummy container as you cannot add one GtkPaned child in UI and other in code,
+              either both in code, or both in UI
+              -->
+              <object class="GtkBox" id="sidebar_container">
+                <signal name="notify::visible" handler="_on_sidebar_visible"/>
               </object>
             </child>
             <child>
@@ -371,53 +368,9 @@
                   </object>
                 </child>
                 <child>
-                  <object class="GtkPaned" id="main_vpanes">
+                  <object class="GtkScrolledWindow" id="treeview_container">
                     <property name="vexpand">True</property>
-                    <property name="orientation">vertical</property>
-                    <child>
-                      <object class="GtkStack" id="stack">
-                        <property name="transition_type">crossfade</property>
-                        <child>
-                          <object class="GtkStackPage">
-                            <property name="name">open_view</property>
-                            <property name="title" translatable="yes" context="tasks view name">Open</property>
-                            <property name="child">
-                              <object class="GtkScrolledWindow" id="open_pane">
-                                <child>
-                                  <placeholder/>
-                                </child>
-                              </object>
-                            </property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="GtkStackPage">
-                            <property name="name">actionable_view</property>
-                            <property name="title" translatable="yes" context="tasks view name">Actionable</property>
-                            <property name="child">
-                              <object class="GtkScrolledWindow" id="actionable_pane">
-                                <child>
-                                  <placeholder/>
-                                </child>
-                              </object>
-                            </property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="GtkStackPage">
-                            <property name="name">closed_view</property>
-                            <property name="title" translatable="yes" context="tasks view name">Closed</property>
-                            <property name="child">
-                              <object class="GtkScrolledWindow" id="closed_pane">
-                                <child>
-                                  <placeholder/>
-                                </child>
-                              </object>
-                            </property>
-                          </object>
-                        </child>
-                      </object>
-                    </child>
+                    <property name="hscrollbar-policy">never</property>
                   </object>
                 </child>
                 <child>

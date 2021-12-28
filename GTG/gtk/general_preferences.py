@@ -147,7 +147,6 @@ class GeneralPreferences(Gtk.ScrolledWindow):
         curstate = self.config.get("contents_preview_enable")
         if curstate != self._preview_button.get_active():
             self.config.set("contents_preview_enable", not curstate)
-            self._refresh_task_browser()
 
     @Gtk.Template.Callback()
     def on_bg_color_toggled(self, widget, state):
@@ -155,7 +154,6 @@ class GeneralPreferences(Gtk.ScrolledWindow):
         curstate = self.config.get("bg_color_enable")
         if curstate != self._bg_color_button.get_active():
             self.config.set("bg_color_enable", not curstate)
-            self._refresh_task_browser()
 
     @Gtk.Template.Callback()
     def on_font_change(self, widget):
@@ -188,13 +186,5 @@ class GeneralPreferences(Gtk.ScrolledWindow):
         self.config.set("dark_mode", state)
         self.app.toggle_darkmode(state)
         collapsed = self.config.get("collapsed_tasks")
-
-        # Refresh panes
-        func = self.app.browser.tv_factory.get_task_bg_color
-
-        for pane in self.app.browser.vtree_panes.values():
-            pane.set_is_dark(state)
-            pane.set_bg_color(func, 'bg_color')
-            pane.basetree.get_basetree().refresh_all()
 
         self.app.browser.restore_collapsed_tasks(collapsed)

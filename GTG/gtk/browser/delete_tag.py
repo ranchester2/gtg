@@ -26,9 +26,9 @@ class DeleteTagsDialog():
 
     MAXIMUM_TAGS_TO_SHOW = 5
 
-    def __init__(self, req, browser):
+    def __init__(self, req, parent):
         self.req = req
-        self.browser = browser
+        self.parent = parent
         self.tags_todelete = []
 
     def on_delete_confirm(self):
@@ -88,7 +88,7 @@ class DeleteTagsDialog():
         titles = "".join("\n• " + tag for tag in tagslist)
 
         # Build and run dialog
-        dialog = Gtk.MessageDialog(transient_for=self.browser, modal=True)
+        dialog = Gtk.MessageDialog(transient_for=self.parent, modal=True)
         dialog.add_button(cancel_text, Gtk.ResponseType.CANCEL)
 
         delete_btn = dialog.add_button(delete_text, Gtk.ResponseType.YES)

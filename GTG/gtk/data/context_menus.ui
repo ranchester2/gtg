@@ -225,11 +225,15 @@
   <menu id="tag_context_menu">
     <item>
       <attribute name="label" translatable="yes">Edit...</attribute>
-      <attribute name="action">tags_popup.edit_tag</attribute>
+      <attribute name="action">tag.edit</attribute>
     </item>
     <item>
       <attribute name="label" translatable="yes">Generate Color</attribute>
-      <attribute name="action">tags_popup.generate_tag_color</attribute>
+      <attribute name="action">tag.generate_color</attribute>
+    </item>
+    <item>
+      <attribute name="label" translatable="yes">Delete</attribute>
+      <attribute name="action">tag.delete</attribute>
     </item>
   </menu>
 

@@ -7,7 +7,6 @@ tmp
 .tox
 .vscode/
 MANIFEST
-**.patch
 gtg.prof
 __pycache__
 .*.sw*

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0" />
+  <template class="TagsRow" parent="GtkBox">
+    <child>
+      <object class="TagBackgroundBin">
+        <property name="hexpand">True</property>
+        <binding name="task">
+          <lookup name="task">TagsRow</lookup>
+        </binding>
+        <binding name="requester">
+          <lookup name="requester">TagsRow</lookup>
+        </binding>
+        <property name="child">
+          <object class="TagsDisplay">
+            <binding name="task">
+              <lookup name="task">TagsRow</lookup>
+            </binding>
+            <style>
+              <class name="tags-display"/>
+            </style>
+          </object>
+        </property>
+      </object>
+    </child>
+  </template>
+</interface>

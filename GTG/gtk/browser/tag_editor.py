@@ -42,7 +42,7 @@ class TagEditor(Gtk.Dialog):
     _icon_button = Gtk.Template.Child('icon-button')
     _name_entry = Gtk.Template.Child('name-entry')
 
-    def __init__(self, req, app, tag=None):
+    def __init__(self, req, tag=None):
         super().__init__(use_header_bar=1)
 
         set_icon_shortcut = Gtk.Shortcut.new(
@@ -52,7 +52,6 @@ class TagEditor(Gtk.Dialog):
         self.add_shortcut(set_icon_shortcut)
 
         self.req = req
-        self.app = app
         self.tag = tag
 
         self._title_format = self.get_title()

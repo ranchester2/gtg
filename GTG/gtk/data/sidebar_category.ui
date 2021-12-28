@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0" />
+  <template class="GTGSidebarCategoryRow" parent="GtkBox">
+    <property name="spacing">12</property>
+    <child>
+      <object class="GtkLabel" id="_label">
+        <binding name="label">
+          <lookup name="title">
+            <lookup name="category">GTGSidebarCategoryRow</lookup>
+          </lookup>
+        </binding>
+        <style>
+          <class name="dim-label"/>
+        </style>
+      </object>
+    </child>
+    <child>
+      <object class="GtkImage" id="_arrow">
+        <property name="hexpand">True</property>
+        <property name="halign">end</property>
+        <property name="icon-name">go-down-symbolic</property>
+        <style>
+          <class name="row-expander-icon"/>
+          <class name="dim-label"/>
+        </style>
+      </object>
+    </child>
+    <style>
+      <class name="category" />
+    </style>
+  </template>
+</interface>

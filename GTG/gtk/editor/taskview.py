@@ -27,6 +27,7 @@ import logging
 from gi.repository import Gtk, GLib, Gdk, GObject, GtkSource
 
 from GTG.core.requester import Requester
+from GTG.core.tasks2 import Status
 import GTG.core.urlregex as url_regex
 from webbrowser import open as openurl
 from gettext import gettext as _
@@ -266,7 +267,7 @@ class TaskView(GtkSource.View):
             # Add new subtask
             tid = self.new_subtask_cb(text[2:])
             task = self.req.get_task(tid)
-            status = task.get_status() if task else 'Active'
+            status = task.status if task else Status.ACTIVE
 
             # Add the checkbox
             self.add_checkbox(tid, start)
@@ -307,10 +308,10 @@ class TaskView(GtkSource.View):
             # Don't auto-remove it
             tid = sub_tag.tid
             task = self.req.get_task(tid)
-            parents = task.get_parents()
+            parent = task.parent
 
             # Remove if its not a child of this task
-            if not parents or parents[0] != self.tid:
+            if parent.id != self.tid:
                 log.debug('Task %s is not a subtask of %s', tid, self.tid)
                 log.debug('Removing subtask %s from content', tid)
 
@@ -354,7 +355,7 @@ class TaskView(GtkSource.View):
             self.rename_subtask_cb(tid, text)
 
             # Get the task and instantiate an internal link tag
-            status = task.get_status() if task else 'Active'
+            status = task.status if task else 'Active'
             link_tag = InternalLinkTag(tid, status)
             self.table.add(link_tag)
 
@@ -397,7 +398,7 @@ class TaskView(GtkSource.View):
         task = self.req.get_task(tid)
         checkbox = Gtk.CheckButton.new()
 
-        if task and task.status != task.STA_ACTIVE:
+        if task and task.status != Status.ACTIVE:
             checkbox.set_active(True)
 
         checkbox.connect('toggled', lambda _: self.on_checkbox_toggle(tid))
@@ -847,7 +848,7 @@ class TaskView(GtkSource.View):
 
         # Add subtask name
         task = self.req.get_task(tid)
-        self.buffer.insert(start, task.get_title())
+        self.buffer.insert(start, task.title)
 
         # Reset iterator
         _, start = self.buffer.get_iter_at_line(line)
@@ -859,7 +860,7 @@ class TaskView(GtkSource.View):
         end = start.copy()
         end.forward_to_line_end()
 
-        link_tag = InternalLinkTag(tid, task.get_status())
+        link_tag = InternalLinkTag(tid, task.status)
         self.table.add(link_tag)
         self.buffer.apply_tag(link_tag, start, end)
         self.tags_applied.append(link_tag)

@@ -21,7 +21,7 @@
 from uuid import uuid4
 from gi.repository import Gtk, Pango, Gdk
 
-from GTG.core.task import Task
+from GTG.core.tasks2 import Status
 from GTG.gtk.colors import background_color
 from GTG.core.requester import Requester
 from webbrowser import open as openurl
@@ -111,7 +111,7 @@ class InternalLinkTag(Gtk.TextTag):
 
         self.set_property('underline', Pango.Underline.SINGLE)
 
-        if status == Task.STA_ACTIVE:
+        if status == Status.ACTIVE:
             self.set_property('strikethrough', False)
             self.set_property('foreground', colors['link_active'])
         else:
@@ -238,7 +238,7 @@ class TaskTagTag(Gtk.TextTag):
         """Change tag appareance when hovering."""
 
         try:
-            color = self.tag.get_attribute('color') or '#EBDB34'
+            color = "#" + (self.tag.color or 'EBDB34')
             self.set_property('background', color)
         except AttributeError:
             self.set_property('background', '#EBDB34')

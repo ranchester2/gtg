@@ -19,7 +19,7 @@
 """Everything related to tasks."""
 
 
-from gi.repository import GObject
+from gi.repository import GObject, Gio, Gtk
 from gettext import gettext as _
 
 from uuid import uuid4, UUID
@@ -27,12 +27,13 @@ import logging
 from typing import Callable, Any, Optional
 from enum import Enum
 import re
+import xml.sax.saxutils
 import datetime
 from operator import attrgetter
 
 from lxml.etree import Element, SubElement, CDATA
 
-from GTG.core.base_store import BaseStore
+from GTG.core.base_store import BaseStore, ContrListStore
 from GTG.core.tags2 import Tag2, TagStore
 from GTG.core.dates import Date
 
@@ -79,31 +80,66 @@ class Task2(GObject.Object):
     """A single task."""
 
     __gtype_name__ = 'gtg_Task'
-    __slots__ = ['id', 'raw_title', 'content', 'tags',
-                 'children', 'status', 'parent', '_date_added',
-                 '_date_due', '_date_start', '_date_closed',
+    __gsignals__ = {
+        # HACK:
+        # GtkFilterListModel does not support changing items, so we must indicate somehow
+        # to the store that is storing us that we changed in such a way, so that it could
+        # fire an items-changed signal with a fake addition/removal for the Gtk Filters
+        # to run again
+        'filter_dependant_changed': (GObject.SignalFlags.RUN_FIRST, None, ())
+    }
+    __slots__ = ['id', 'raw_title', 'tags',
+                 'children', 'child_filters', 'status', 'parent',
+                 '_date_added', '_date_due', '_date_start', '_date_closed',
                  '_date_modified']
 
-
     def __init__(self, id: UUID, title: str) -> None:
+        super().__init__()
         self.id = id
-        self.raw_title = title.strip('\t\n')
-        self.content =  ''
-        self.tags = []
-        self.children = []
+        self.raw_title = "" # GOBJECT TEMP
+        self.title = title.strip('\t\n')
+        self.tags = Gio.ListStore.new(Tag2)
+        self.tags.connect("items-changed", self._on_tags_changed)
+        self.children = ContrListStore(
+            self._children_add_func, self._children_rem_func
+        )
+        self.child_filters = {}
         self.status = Status.ACTIVE
         self.parent = None
+        # for users to store property bindings for easy
+        # unbinding
+        self.bindings = {}
 
+        self._content = ''
         self._date_added = Date.no_date()
         self._date_due = Date.no_date()
         self._date_start = Date.no_date()
         self._date_closed = Date.no_date()
         self._date_modified = Date(datetime.datetime.now())
 
+    def _children_add_func(self, item):
+        for name, filtermodel in self.child_filters.items():
+            child_filter = Gtk.FilterListModel.new(item.children, filtermodel.get_filter())
+            item.child_filters[name] = child_filter
+        item.__container_reserved_watch_sigid = item.connect(
+            'filter_dependant_changed', self._on_child_filter_dependant_change)
+
+    def _children_rem_func(self, item):
+        item.disconnect(item.__container_reserved_watch_sigid)
+
+    def _on_child_filter_dependant_change(self, item):
+        # it is not a python list, getting the index is a bit harder
+        for idx, l_item in enumerate(self.children):
+            if l_item == item:
+                index = idx
+                break
+        self.children.items_changed(index, 1, 1)
+
+    def _on_tags_changed(self, model, position, removed, added):
+        self.emit("filter_dependant_changed")
 
     def is_actionable(self) -> bool:
         """Determine if this task is actionable."""
-
         actionable_tags = all(t.actionable for t in self.tags)
         active_children = all(t.status != Status.ACTIVE for t in self.children)
         days_left = self._date_start.days_left()
@@ -133,6 +169,7 @@ class Task2(GObject.Object):
         if propagate:
             for child in self.children:
                 child.toggle_status()
+        self.emit("filter_dependant_changed")
 
 
     def dismiss(self) -> None:
@@ -141,16 +178,21 @@ class Task2(GObject.Object):
         self.set_status(Status.DISMISSED)
 
 
-    def set_status(self, status: Status) -> None:
+    def set_status(self, status: Status, propogate: bool = True) -> None:
         """Set status for task."""
 
         self.status = status
 
-        for child in self.children:
-            child.set_status(status)
+        if self.status == Status.ACTIVE and self.parent:
+            self.parent.set_status(Status.ACTIVE, propogate=False)
+
+        if propogate:
+            for child in self.children:
+                child.set_status(status)
+        self.emit("filter_dependant_changed")
 
 
-    @property
+    @GObject.property(type=Date)
     def date_due(self) -> Date:
         return self._date_due
 
@@ -176,7 +218,7 @@ class Task2(GObject.Object):
             self.parent.date_due = value
 
 
-    @property
+    @GObject.Property(type=Date)
     def date_added(self) -> Date:
         return self._date_added
 
@@ -186,7 +228,7 @@ class Task2(GObject.Object):
         self._date_added = Date(value)
 
 
-    @property
+    @GObject.Property(type=Date)
     def date_start(self) -> Date:
         return self._date_start
 
@@ -196,7 +238,7 @@ class Task2(GObject.Object):
         self._date_start = Date(value)
 
 
-    @property
+    @GObject.Property(type=Date)
     def date_closed(self) -> Date:
         return self._date_closed
 
@@ -206,7 +248,7 @@ class Task2(GObject.Object):
         self._date_closed = Date(value)
 
 
-    @property
+    @GObject.Property(type=Date)
     def date_modified(self) -> Date:
         return self._date_modified
 
@@ -216,29 +258,61 @@ class Task2(GObject.Object):
         self._date_modified = Date(value)
 
 
-    @property
+    @GObject.Property(type=str)
     def title(self) -> str:
         return self.raw_title
-
 
     @title.setter
     def title(self, value) -> None:
         self.raw_title = value.strip('\t\n') or _('(no title)')
 
+    @GObject.Property(type=str)
+    def content(self) -> str:
+        return self._content
 
-    @property
+    @content.setter
+    def content(self, value) -> None:
+        self._content = value
+        self.notify('excerpt')
+
+    @GObject.property(type=str)
     def excerpt(self) -> str:
-        if not self.content:
+        lines = 1
+        char = 80
+        # defensive programmation to avoid returning None
+        if self.content:
+            txt = self.content
+
+            txt = txt.strip()
+
+            for tag in [tag.name for tag in self.tags]:
+                txt = (txt.replace(f'@{tag}, ', '')
+                          .replace(f'@{tag},', '')
+                          .replace(f'@{tag}', ''))
+
+            txt = re.sub(SUB_REGEX, '', txt)
+
+            # Strip blank lines and get desired amount of lines
+            txt = [line for line in txt.splitlines() if line]
+            txt = txt[:lines]
+            txt = '\n'.join(txt)
+
+            # We keep the desired number of char
+            if char > 0:
+                txt = txt[:char]
+            return f'{txt}…'
+        else:
             return ''
 
         # Strip tags
-        txt = TAG_REGEX.sub('', self.content)
+        txt = re.sub(TAG_REGEX, '', self.content)
+        print(txt)
 
         # Strip subtasks
         txt = SUB_REGEX.sub('', txt)
 
         # Strip blank lines and set within char limit
-        return f'{txt.strip()[:80]}…'
+        return txt.partition("\n")[0][:80]
 
 
     def add_tag(self, tag: Tag2) -> None:
@@ -255,8 +329,11 @@ class Task2(GObject.Object):
         """Remove a tag from this task."""
 
         for t in self.tags:
+            # FIXME: one item is none
+            if not t:
+                continue
             if t.name == tag_name:
-                self.tags.remove(t)
+                self.tags.remove(self.tags.find(t)[1])
                 (self.content.replace(f'{tag_name}\n\n', '')
                              .replace(f'{tag_name},', '')
                              .replace(f'{tag_name}', ''))
@@ -333,13 +410,15 @@ class TaskStore(BaseStore):
         tid = uuid4()
         task = Task2(id=tid, title=title)
 
-        if parent:
-            self.add(task, parent)
-        else:
-            self.data.append(task)
-            self.lookup[tid] = task
+        self.add(task, parent)
 
-        self.emit('added', task)
+        #if parent:
+        #    self.add(task, parent)
+        #else:
+        #    self.data.append(task)
+        #    self.lookup[tid] = task
+
+        #self.emit('added', task)
         return task
 
 
@@ -361,6 +440,9 @@ class TaskStore(BaseStore):
             task.date_modified = Date(datetime.datetime.fromisoformat(modified))
 
             added = dates.find('added').text
+            # HACK
+            if not added:
+                added = datetime.datetime.now().isoformat()
             task.date_added = Date(datetime.datetime.fromisoformat(added))
 
             if status == 'Done':
@@ -548,6 +630,8 @@ class TaskStore(BaseStore):
         key = key or 'date_added'
 
         for t in tasks:
+            # TOOD: use glib comparefunc as this will probably be a GListstore
+            return
             t.children.sort(key=attrgetter(key), reverse=reverse)
 
         tasks.sort(key=attrgetter(key), reverse=reverse)

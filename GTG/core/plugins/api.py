@@ -57,8 +57,8 @@ class PluginAPI():
         else:
             self.__ui = self.__view_manager.browser
             self.__task_id = None
-            self.__view_manager.browser.selection.connect(
-                "changed", self.__selection_changed)
+            #self.__view_manager.browser.selection.connect(
+            #    "changed", self.__selection_changed)
         self.taskwidget_id = 0
         self.taskwidget_widg = []
 

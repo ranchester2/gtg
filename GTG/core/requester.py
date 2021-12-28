@@ -20,9 +20,11 @@
 A nice general purpose interface for the datastore and tagstore
 """
 import logging
+import os
 from gi.repository import GObject
 
 from GTG.core.tag import Tag, SEARCH_TAG_PREFIX
+from GTG.core.dirs import DATA_DIR
 
 log = logging.getLogger(__name__)
 
@@ -43,62 +45,51 @@ class Requester(GObject.GObject):
         super().__init__()
         self.ds = datastore
         self._config = global_conf
-        self.__basetree = self.ds.get_tasks_tree()
+        self._get_displayed_tasks_view_func = None
 
     # Tasks Tree ######################
-    # By default, we return the task tree of the main window
-    def get_tasks_tree(self, name='active', refresh=True):
-        return self.__basetree.get_viewtree(name=name, refresh=refresh)
+    def get_tasks_tree(self):
+        return self.ds.tasks
 
-    def get_main_view(self):
-        return self.__basetree.get_main_view()
+    def set_get_displayed_tasks_view_func(self, func):
+        """
+        Set a function that takes no arguments and causes users of the requester
+        to get the TasksView that is currently displayed in the window.
+        """
+        self._get_displayed_tasks_view_func = func
 
-    def is_displayed(self, task):
-        return self.__basetree.get_viewtree(name='active').is_displayed(task)
+    def get_displayed_tasks_view(self):
+        """
+        Get the currently utilised TasksView
+        """
+        return self._get_displayed_tasks_view_func()
 
-    def get_basetree(self):
-        return self.__basetree
-
-    def apply_global_filter(self, tree, filtername):
+    def apply_tag_filter(self, filter, alternative_flat_filt=None):
         """
         This method also update the viewcount of tags
         TODO(jakubbrindza): Evaluate if this is used somewhere before release
         """
-        tree.apply_filter(filtername)
-        for t in self.get_all_tags():
-            ta = self.get_tag(t)
-            ta.apply_filter(filtername)
+        view = self._get_displayed_tasks_view_func()
 
-    def unapply_global_filter(self, tree, filtername):
+        if view.is_flat and alternative_flat_filt:
+            view.set_tags_filter(alternative_flat_filt, view.is_flat)
+            return
+        view.set_tags_filter(filter, view.is_flat)
+
+    def apply_search_filter(self, filter, alternative_flat_filt=None):
         """
         TODO(jakubbrindza): Evaluate if this is used somewhere before release
         """
-        tree.unapply_filter(filtername)
-        for t in self.get_all_tags():
-            ta = self.get_tag(t)
-            ta.unapply_filter(filtername)
-
-    # Filters bank #######################
-    # List, by name, all available filters
-    def list_filters(self):
-        return self.__basetree.list_filters()
-
-    # Add a filter to the filter bank
-    # Return True if the filter was added
-    # Return False if the filter_name was already in the bank
-    def add_filter(self, filter_name, filter_func):
-        return self.__basetree.add_filter(filter_name, filter_func)
-
-    # Remove a filter from the bank.
-    # Only custom filters that were added here can be removed
-    # Return False if the filter was not removed
-    def remove_filter(self, filter_name):
-        return self.__basetree.remove_filter(filter_name)
+        view = self._get_displayed_tasks_view_func()
+        if view.is_flat and alternative_flat_filt:
+            view.set_search_filter(alternative_flat_filt, view.is_flat)
+            return
+        view.set_search_filter(filter, view.is_flat)
 
     # Tasks ##########################
     def has_task(self, tid):
         """Does the task 'tid' exist?"""
-        return self.ds.has_task(tid)
+        return tid in self.ds.tasks.lookup
 
     def get_task(self, tid):
         """Get the task with the given C{tid}.
@@ -108,11 +99,10 @@ class Requester(GObject.GObject):
         @param tid: The task id.
         @return: A task.
         """
-        task = self.ds.get_task(tid)
+        task = self.ds.tasks.get(tid)
         return task
 
-    # FIXME unused parameter newtask (maybe for compatibility?)
-    def new_task(self, tags=None, newtask=True):
+    def new_task(self, tags=None, title="", parent=None, newtask=True):
         """Create a new task.
 
         Note: this modifies the datastore.
@@ -125,11 +115,12 @@ class Requester(GObject.GObject):
             existed, C{False} if importing an existing task from a backend.
         @return: A task from the data store
         """
-        task = self.ds.new_task()
+        task = self.ds.tasks.new(title, parent)
         if tags:
             for t in tags:
                 assert(not isinstance(t, Tag))
-                task.tag_added(t)
+                tag_obj = self.ds.tags.new(t, None)
+                task.add_tag(tag_obj)
         return task
 
     def delete_task(self, tid, recursive=True):
@@ -142,7 +133,7 @@ class Requester(GObject.GObject):
         """
         # send the signal before actually deleting the task !
         log.debug("deleting task %s", tid)
-        return self.__basetree.del_node(tid, recursive=recursive)
+        self.ds.tasks.remove(tid)
 
     def get_task_id(self, task_title):
         """ Heuristic which convert task_title to a task_id
@@ -159,9 +150,13 @@ class Requester(GObject.GObject):
 
         return None
 
+    # Searches ########################
+    def get_saved_searches_tree(self):
+        return self.ds.saved_searches
+
     # Tags ##########################
     def get_tag_tree(self):
-        return self.ds.get_tagstore().get_viewtree(name='activetags')
+        return self.ds.tags
 
     def new_tag(self, tagname):
         """Create a new tag called 'tagname'.
@@ -171,7 +166,7 @@ class Requester(GObject.GObject):
         @param tagname: The name of the new tag.
         @return: The newly-created tag.
         """
-        return self.ds.new_tag(tagname)
+        return self.ds.tags.new(tagname)
 
     def new_search_tag(self, query):
         """
@@ -217,7 +212,10 @@ class Requester(GObject.GObject):
         self.ds.rename_tag(oldname, newname)
 
     def get_tag(self, tagname):
-        return self.ds.get_tag(tagname)
+        try:
+            return self.ds.tags.find(tagname)
+        except KeyError:
+            return None
 
     def get_used_tags(self):
         """Return tags currently used by a task.
@@ -238,10 +236,13 @@ class Requester(GObject.GObject):
 
     def delete_tag(self, tagname):
         my_tag = self.get_tag(tagname)
-        for task_id in my_tag.get_related_tasks():
-            my_task = self.get_task(task_id)
-            my_task.remove_tag(tagname)
-            my_task.sync()
+        for task in self.ds.tasks.lookup.values():
+            if my_tag in task.tags:
+                task.remove_tag(my_tag.name)
+        # Non recursive, save parents
+        for child in my_tag.children:
+            self.ds.tags.unparent(child.id, my_tag.id)
+        self.ds.tags.remove(my_tag.id)
 
     # Backends #######################
     def get_all_backends(self, disabled=False):
@@ -266,12 +267,16 @@ class Requester(GObject.GObject):
         return self.ds.backend_change_attached_tags(backend_id, tags)
 
     def save_datastore(self, quit=False):
-        return self.ds.save(quit)
+        return self.ds.save_file(os.path.join(DATA_DIR, "gtg_data.xml"))
 
     # Config ############################
     def get_config(self, system):
         """ Returns configuration object for subsytem, e.g. browser """
         return self._config.get_subconfig(system)
+
+    def get_global_config(self):
+        """ Returns the global persistent configuration, e.g. for connecting to signals """
+        return self._config
 
     def get_task_config(self, task_id):
         """ Returns configuration object for task """

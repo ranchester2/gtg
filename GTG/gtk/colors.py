@@ -87,12 +87,12 @@ def background_color(tags, bgcolor=None, galpha_scale=1, use_alpha=True):
     green = 0
     blue = 0
     for my_tag in tags:
-        my_color_str = my_tag.get_attribute("color")
+        my_color_str = my_tag.color
         if my_color_str is not None and my_color_str not in used_color:
             used_color.append(my_color_str)
         if my_color_str:
             my_color = Gdk.RGBA()
-            my_color.parse(my_color_str)
+            my_color.parse("#" + my_color_str)
             color_count = color_count + 1
             red = red + my_color.red
             green = green + my_color.green

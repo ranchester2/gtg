@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0" />
+  <template class="GTGSidebarEntryRow" parent="GtkBox">
+    <property name="spacing">12</property>
+    <child>
+      <object class="GtkImage">
+        <binding name="icon-name">
+          <lookup name="icon-name" type="GTGSidebarEntry">
+            <lookup name="entry">GTGSidebarEntryRow</lookup>
+          </lookup>
+        </binding>
+      </object>
+    </child>
+    <child>
+      <object class="GtkLabel">
+        <binding name="label">
+          <lookup name="title" type="GTGSidebarEntry">
+            <lookup name="entry">GTGSidebarEntryRow</lookup>
+          </lookup>
+        </binding>
+      </object>
+    </child>
+    <style>
+      <class name="category" />
+    </style>
+  </template>
+</interface>

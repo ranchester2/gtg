@@ -6,6 +6,116 @@
     min-width: 16px;
 }
 
+.tasks-list cell .tag-background > * {
+    margin: 4px;
+}
+
+.tasks-list cell{
+    padding: 0px;
+    border-left: none;
+}
+
+.tags-display {
+  border-spacing: 2px;
+}
+
+columnview header button:first-child {
+	border-left-width: 0px;
+}
+
+.flat-tree treeexpander {
+  border-spacing: 0;
+}
+
+.flat-tree treeexpander indent {
+  -gtk-icon-size: 0px;
+}
+
+.flat-tree treeexpander expander {
+  -gtk-icon-size: 0px;
+  min-height: 0px;
+  min-width: 0px;
+}
+
+/* --------------------------------------------------------------------------------
+ * DND
+ * --------------------------------------------------------------------------------
+ */
+
+.square-frame {
+  border-radius: 0px;
+}
+
+/* Dragged tag frame should be same as the actual tag row */
+.tag-frame {
+  border-radius: 5px;
+}
+
+/* For some reason the dnd effect with .navigation-sidebar is disabled,
+   I copied the color from the Default theme src */
+gtgsidebar listview:drop(active) {
+	box-shadow: inset 0 0 0 1px #2ec27e;
+}
+
+.dragged-task {
+    background-color: @theme_base_color;
+}
+
+.dragged-task:selected {
+    background-color: @theme_selected_bg_color;
+}
+
+.dragged-tag {
+  background: @theme_base_color;
+}
+
+/* --------------------------------------------------------------------------------
+ * SIDEBAR
+ * --------------------------------------------------------------------------------
+ */
+
+gtgsidebar listview row {
+  padding-left: 0px;
+  padding-right: 0px;
+}
+
+gtgsidebar listview row > * {
+  padding-left: 8px;
+  padding-right: 8px;
+  border-radius: 5px;
+}
+
+.category:active {
+  box-shadow: unset;
+}
+
+.category:hover {
+  background-color: unset;
+}
+
+.category {
+}
+
+.row-expander-icon {
+  transition: 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.row-expander-icon:checked {
+  -gtk-icon-transform: rotate(0turn);
+}
+
+.row-expander-icon:not(:checked) {
+  -gtk-icon-transform: rotate(-0.25turn);
+}
+
+.arrow-only-expander {
+  border-spacing: 0;
+}
+
+.arrow-only-expander indent {
+  -gtk-icon-size: 0px;
+}
+
 /* --------------------------------------------------------------------------------
  * PREFERENCES
  * --------------------------------------------------------------------------------

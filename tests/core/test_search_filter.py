@@ -24,25 +24,19 @@ from GTG.core.dates import Date
 d = Date.parse
 
 
+class FakeTag():
+
+    def __init__(self, name):
+        self.name = name
+
+
 class FakeTask():
 
     def __init__(self, title="", body="", tags=[], due_date=""):
         self.title = title
         self.body = body
-        self.tags = tags
-        self.due_date = Date.parse(due_date)
-
-    def get_title(self):
-        return self.title
-
-    def get_excerpt(self, strip_tags=False):
-        return self.body
-
-    def get_tags_name(self):
-        return self.tags
-
-    def get_due_date(self):
-        return self.due_date
+        self.tags = [FakeTag(tagname) for name in tags]
+        self.date_due = Date.parse(due_date)
 
 
 class TestSearchFilter(TestCase):

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0" />
+  <!--
+  It would make quite some sense to inherit from ContextMenuBin,
+  especially as it is already a bin, and we can't use AdwBin.
+  However while it works, it spams constant warnings about template != NULL
+  -->
+  <template class="TaskRow" parent="GtkBox">
+    <child>
+      <object class="ContextMenuBin">
+        <property name="hexpand">True</property>
+        <binding name="model">
+          <lookup name="menu_model">TaskRow</lookup>
+        </binding>
+        <property name="child">
+          <object class="TagBackgroundBin">
+            <binding name="task">
+              <lookup name="task">TaskRow</lookup>
+            </binding>
+            <binding name="requester">
+              <lookup name="requester">TaskRow</lookup>
+            </binding>
+            <property name="child">
+              <object class="GtkTreeExpander">
+                <binding name="list_row">
+                  <lookup name="list_row">TaskRow</lookup>
+                </binding>
+                <property name="child">
+                  <object class="GtkBox">
+                    <property name="spacing">2</property>
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="ellipsize">end</property>
+                        <property name="xalign">0</property>
+                        <binding name="label">
+                          <lookup name="title" type="gtg_Task">
+                            <lookup name="task">TaskRow</lookup>
+                          </lookup>
+                        </binding>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="ellipsize">end</property>
+                        <property name="yalign">1</property>
+                        <binding name="visible">
+                          <lookup name="description_visible">TaskRow</lookup>
+                        </binding>
+                        <binding name="label">
+                          <lookup name="excerpt" type="gtg_Task">
+                            <lookup name="task">TaskRow</lookup>
+                          </lookup>
+                        </binding>
+                        <style>
+                          <class name="caption"/>
+                          <class name="dim-label"/>
+                        </style>
+                      </object>
+                    </child>
+                  </object>
+                </property>
+              </object>
+            </property>
+          </object>
+        </property>
+      </object>
+    </child>
+  </template>
+</interface>

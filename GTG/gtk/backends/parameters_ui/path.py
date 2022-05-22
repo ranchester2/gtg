@@ -46,6 +46,7 @@ class PathUI(Gtk.Box):
 
         @param width: the width of the Gtk.Label object
         """
+        self.set_spacing(10)
         label = Gtk.Label(label=_("Filename:"))
         label.set_wrap(True)
         label.set_xalign(0)

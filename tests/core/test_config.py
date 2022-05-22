@@ -74,14 +74,14 @@ class TestSectionConfig(TestCase):
     @patch('GTG.core.config.log')
     def test_warns_when_no_default_value_is_provided(self, mock_log):
         config = self.make_section_config({'option': '1'})
-        section = SectionConfig('Name', config, {}, Mock())
+        section = SectionConfig('Name', config, {}, Mock(), Mock())
         value = section.get('option')
         self.assertEqual('1', value)
 
     @patch('GTG.core.config.log')
     def test_warns_when_value_is_wrong_type(self, mock_log):
         config = self.make_section_config({'option': 'text'})
-        section = SectionConfig('Name', config, {'option': 42}, Mock())
+        section = SectionConfig('Name', config, {'option': 42}, Mock(), Mock())
         value = section.get('option')
         self.assertTrue(mock_log.warning.called)
         # It should fall back to default value as 'text' is not an int
@@ -89,34 +89,34 @@ class TestSectionConfig(TestCase):
 
     def test_returns_int_when_expected_int(self):
         config = self.make_section_config({'option': '42'})
-        section = SectionConfig('Name', config, {'option': 42}, Mock())
+        section = SectionConfig('Name', config, {'option': 42}, Mock(), Mock())
         value = section.get('option')
         self.assertEqual(int, type(value))
         self.assertEqual(42, value)
 
     def test_returns_bool_when_expected_bool(self):
         config = self.make_section_config({'option': 'False'})
-        section = SectionConfig('Name', config, {'option': False}, Mock())
+        section = SectionConfig('Name', config, {'option': False}, Mock(), Mock())
         value = section.get('option')
         self.assertEqual(bool, type(value))
         self.assertEqual(False, value)
 
     def test_returns_string_when_expected_string(self):
         config = self.make_section_config({'option': 'Hello'})
-        section = SectionConfig('Name', config, {'option': 'World'}, Mock())
+        section = SectionConfig('Name', config, {'option': 'World'}, Mock(), Mock())
         value = section.get('option')
         self.assertEqual(str, type(value))
         self.assertEqual('Hello', value)
 
     def test_returns_empty_list_for_non_existing_value(self):
         config = self.make_section_config({})
-        section = SectionConfig('Name', config, {'option': []}, Mock())
+        section = SectionConfig('Name', config, {'option': []}, Mock(), Mock())
         value = section.get('option')
         self.assertEqual([], value)
 
     def test_returns_empty_list_for_empty_value(self):
         config = self.make_section_config({'option': ''})
-        section = SectionConfig('Name', config, {'option': []}, Mock())
+        section = SectionConfig('Name', config, {'option': []}, Mock(), Mock())
         value = section.get('option')
         self.assertEqual([], value)
 
@@ -124,7 +124,7 @@ class TestSectionConfig(TestCase):
         # Config from GTG 0.2.4
         config = self.make_section_config({
             'opened_tasks': '8@1, 6@1, 4@1'})
-        section = SectionConfig('Name', config, {'opened_tasks': []}, Mock())
+        section = SectionConfig('Name', config, {'opened_tasks': []}, Mock(), Mock())
         value = section.get('opened_tasks')
         self.assertEqual(['8@1', '6@1', '4@1'], value)
 
@@ -132,7 +132,7 @@ class TestSectionConfig(TestCase):
         # Config from GTG 0.2.4
         config = self.make_section_config({
             'opened_tasks': ','})
-        section = SectionConfig('Name', config, {'opened_tasks': []}, Mock())
+        section = SectionConfig('Name', config, {'opened_tasks': []}, Mock(), Mock())
         value = section.get('opened_tasks')
         self.assertEqual([], value)
 
@@ -143,7 +143,8 @@ class TestSectionConfig(TestCase):
         config = self.make_section_config({
             'collapsed_tasks': "('0@1', '6@1'),('0@1', '8@1', '3@1', '5@1')"})
         section = SectionConfig(
-            'Name', config, {'collapsed_tasks': []}, Mock())
+            'Name', config, {'collapsed_tasks': []}, Mock(), Mock()
+        )
         value = section.get('collapsed_tasks')
         self.assertEqual(
             ["('0@1', '6@1')", "('0@1', '8@1', '3@1', '5@1')"],
@@ -153,7 +154,7 @@ class TestSectionConfig(TestCase):
     def test_raises_an_error_when_no_value_and_no_default_value(
             self, mock_log):
         config = self.make_section_config({})
-        section = SectionConfig('Name', config, {}, Mock())
+        section = SectionConfig('Name', config, {}, Mock(), Mock())
         with self.assertRaises(ValueError):
             section.get('option')
 

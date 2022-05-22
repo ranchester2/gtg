@@ -24,11 +24,12 @@ from gettext import gettext as _
 from GTG.core.dirs import UI_DIR
 from GTG.core.tags2 import Tag2
 from GTG.core.tasks2 import Task2, Status
+from GTG.core.filterview import FilterStore
 from GTG.core.requester import Requester
 from GTG.gtk.browser import GnomeConfig
 from GTG.gtk.browser.tag_editor import TagEditor
 from GTG.gtk.browser.tasks_view import unwrap_item, set_recursive_filter
-from GTG.gtk.browser.filtering import StatusFilter, TagsFilter
+from GTG.gtk.browser.filtering import StatusFilter
 from GTG.gtk.browser.delete_tag import DeleteTagsDialog
 
 
@@ -303,18 +304,9 @@ class GTGSidebar(Gtk.Widget):
 
         self._featured_tags = []
         tasks_tree = self._req.get_tasks_tree()
-        self._fid = uuid.uuid4()
         self._open_filter = StatusFilter(Status.ACTIVE)
-        # We need to ensure our filter is applied to all new items
-        tasks_tree.connect(
-            "added",
-            lambda tree, item : set_recursive_filter(
-                self._open_filter, item.child_filters[self._fid], self._fid
-            )
-        )
-        self._tasks_filter_model = Gtk.FilterListModel.new(self._req.get_tasks_tree(), None)
-        set_recursive_filter(self._open_filter, self._tasks_filter_model, self._fid)
-        self._open_tasks = Gtk.TreeListModel.new(
+        self._tasks_filter_model = FilterStore(store=tasks_tree, filter=self._open_filter, blocking=True)
+        self._open_tasks_tree = Gtk.TreeListModel.new(
             self._tasks_filter_model, True, True, self._tasks_cr_mod_func, None
         )
         self._tasks_filter_model.connect("items-changed", self._update_tags_show)
@@ -400,18 +392,12 @@ class GTGSidebar(Gtk.Widget):
                 self._req.apply_tag_filter(TagsFilter(True), TagsFilter(False))
 
     def _tasks_cr_mod_func(self, item, data):
-        try:
-            return item.child_filters[self._fid]
-        # As a fallback on failure deeper in the stack
-        except KeyError:
-            item.child_filters[self._fid] = Gtk.FilterListModel.new(
-                item.children, self._open_filter
-            )
-            return item.child_filters[self._fid]
+        return item.children
 
     def _update_tags_show(self, model=None, position=None, removed=None, added=None):
         self._featured_tags.clear()
-        for task in self._open_tasks:
+        for ftask in self._open_tasks_tree:
+            task = unwrap_item(ftask, Task2)
             self._featured_tags.extend(task.tags)
         self._tag_model.items_changed(
             0, len(self._tag_model), len(self._tag_model)

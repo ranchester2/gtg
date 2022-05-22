@@ -71,12 +71,29 @@ class ContrListStore(Gio.ListStore):
 class BaseStore(GObject.Object, Gio.ListModel):
     """Base class for data stores."""
 
+    def __repr__(self):
+        repr_result = ""
 
-    def __init__(self) -> None:
+        def recursive_print(tree: List, indent: int) -> None:
+            """Inner print function. """
+
+            tab =  '   ' * indent if indent > 0 else ''
+
+            for node in tree:
+                nonlocal repr_result
+                repr_result += f'{tab} └ {node}\n'
+
+                if node.children:
+                    recursive_print(node.children, indent + 1)
+
+        recursive_print(self.data, 0)
+        return repr_result
+
+    def __init__(self, **kwargs) -> None:
         self.lookup: Dict[UUID, Any] = {}
         self.data: List[Any] = []
 
-        super().__init__()
+        super().__init__(**kwargs)
 
     # --------------------------------------------------------------------------
     # GLISTMODEL
@@ -123,38 +140,30 @@ class BaseStore(GObject.Object, Gio.ListModel):
 
             raise KeyError
 
+        # The store handles this only for toplevels, the items handle it for their
+        # children
+#        else:
+#            if hasattr(item, "child_filters") and self.data:
+#                # We should automatically copy the existing filters if
+#                # possible
+#                reference = self.data[0]
+#                for name, filtermodel in reference.child_filters.items():
+#                    item.child_filters[name] = Gtk.FilterListModel.new(
+#                        item.children, filtermodel.get_filter()
+#                    )
+
+        self.data.append(item)
+        self.lookup[item.id] = item
+
+        self.emit('added', item)
+
         if parent_id:
             try:
-                self.lookup[parent_id].children.append(item)
-                item.parent = self.lookup[parent_id]
-
+                self.parent(item.id, parent_id)
             except KeyError:
                 log.warn(('Failed to add item with id %s to parent %s, '
                          'parent not found!'), item.id, parent_id)
                 raise
-
-        # The store handles this only for toplevels, the items handle it for their
-        # children
-        else:
-            if hasattr(item, "child_filters") and self.data:
-                # We should automatically copy the existing filters if
-                # possible
-                reference = self.data[0]
-                for name, filtermodel in reference.child_filters.items():
-                    item.child_filters[name] = Gtk.FilterListModel.new(
-                        item.children, filtermodel.get_filter()
-                    )
-            self.data.append(item)
-            self.emit('added', item)
-            try:
-                item.__store_reserved_watch_sigid = item.connect(
-                    'filter_dependant_changed', self._on_item_filter_dependant_change
-                )
-            # Type is not one that requires this signal
-            except TypeError:
-                pass
-
-        self.lookup[item.id] = item
 
         log.debug('Added %s', item)
 
@@ -169,11 +178,10 @@ class BaseStore(GObject.Object, Gio.ListModel):
         self.items_changed(self.data.index(item), 0, 1)
 
 
-    @GObject.Signal(name='removed', arg_types=(str,int,bool))
-    def remove_signal(self, item_id, item_position, was_toplevel):
+    @GObject.Signal(name='removed', arg_types=(object,int,bool,bool))
+    def remove_signal(self, item_id, item_position, was_toplevel, prepar):
         """Signal to emit when removing a new item."""
-        if was_toplevel:
-            self.items_changed(item_position, 1, 0)
+        self.items_changed(item_position, 1, 0)
 
     @GObject.Signal(name='parent-change', arg_types=(object, object))
     def parent_change_signal(self, *_):
@@ -198,8 +206,11 @@ class BaseStore(GObject.Object, Gio.ListModel):
             original_position = self.data.index(self.lookup[item_id])
             was_toplevel = True
 
-        for child in item.children:
-            del self.lookup[child.id]
+        def rec_del_func(item):
+            for child in item.children:
+                rec_del_func(child)
+                del self.lookup[child.id]
+        rec_del_func(item)
 
         if parent:
             parent.children.remove(self._find_item_with_glist(parent.children, item))
@@ -214,7 +225,7 @@ class BaseStore(GObject.Object, Gio.ListModel):
         except AttributeError:
             pass
 
-        self.emit('removed', item_id, original_position, was_toplevel)
+        self.emit('removed', item_id, original_position, was_toplevel, False)
 
 
     # --------------------------------------------------------------------------
@@ -232,7 +243,7 @@ class BaseStore(GObject.Object, Gio.ListModel):
         try:
             original_position = self.data.index(item)
             self.data.remove(item)
-            self.emit('removed', item.id, original_position, True)
+            self.emit('removed', item.id, original_position, True, True)
             self.lookup[parent_id].children.append(item)
             item.parent = self.lookup[parent_id]
 
@@ -297,17 +308,4 @@ class BaseStore(GObject.Object, Gio.ListModel):
 
     def print_tree(self) -> None:
         """Print the all the items as a tree."""
-
-        def recursive_print(tree: List, indent: int) -> None:
-            """Inner print function. """
-
-            tab =  '   ' * indent if indent > 0 else ''
-
-            for node in tree:
-                print(f'{tab} └ {node}')
-
-                if node.children:
-                    recursive_print(node.children, indent + 1)
-
-        print(self)
-        recursive_print(self.data, 0)
+        print(repr(self))

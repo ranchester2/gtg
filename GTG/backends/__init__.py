@@ -65,7 +65,7 @@ class BackendFactory(Borg):
                 __import__(extended_module_name)
             except ImportError as exception:
                 # Something is wrong with this backend, skipping
-                log.warning("Backend %s could not be loaded: %r",
+                log.warning("Backend %s could not be l: %r",
                             module_name, exception)
                 continue
             except Exception:

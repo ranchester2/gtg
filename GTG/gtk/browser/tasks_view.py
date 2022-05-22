@@ -179,23 +179,13 @@ class TasksView(Gtk.ColumnView):
         self.add_css_class("tasks-list")
 
         tasks_tree = self._req.get_tasks_tree()
-        tasks_tree.connect("added", self._on_base_tree_added)
-        self._req_filter = None
-        self._req_status_filter = None
-        self._req_tags_filter = None
-        self._req_search_filter = None
-        self._req_filter_model = Gtk.FilterListModel.new(self._req.get_tasks_tree(), None)
-        self._fid = uuid.uuid4()
-        set_recursive_filter(None, self._req_filter_model, self._fid)
         self._tree_model = Gtk.TreeListModel.new(
-            self._req_filter_model, False, True, self._tasks_model_create_func
+            self._req.ds.tasks_libr, False, True, self._tasks_model_create_func
         )
         self._sort_model = Gtk.SortListModel.new(self._tree_model, self.get_sorter())
         self._sort_model.set_sorter(self.get_sorter())
-        self._tree_status_filter_model = Gtk.FilterListModel.new(self._sort_model, None)
-        self._tree_tags_filter_model = Gtk.FilterListModel.new(self._tree_status_filter_model, None)
-        self._tree_search_filter_model = Gtk.FilterListModel.new(self._tree_tags_filter_model, None)
-        self._selection_model = Gtk.MultiSelection.new(self._tree_search_filter_model)
+        self._selection_model = Gtk.MultiSelection.new(self._tree_model)
+        self._selection_model.connect("items-changed", lambda model, position, removed, added : print(model, position, removed, added))
         self.set_model(self._selection_model)
 
         tag_factory = Gtk.SignalListItemFactory()
@@ -256,11 +246,8 @@ class TasksView(Gtk.ColumnView):
         # And for some reason the style doesn't work on the columnview
         self.get_first_child().get_next_sibling().add_controller(view_drop_target)
 
-    def _on_base_tree_added(self, tree, item: Task2):
-        set_recursive_filter(self._req_filter, item.child_filters[self._fid], self._fid)
-
     def _tasks_model_create_func(self, item):
-        return item.child_filters[self._fid]
+        return item.children
 
     # Dates
 
@@ -465,6 +452,7 @@ class TasksView(Gtk.ColumnView):
             set_recursive_filter(self._req_filter, self._req_filter_model, self._fid)
 
     def _set_both_filter(self, filter, type, flat):
+        return
         type_map = {
             # The reason for this "type" thing instead of passing the req filter as
             # an argument, is because if it is None, then it doesn't work like a reference,

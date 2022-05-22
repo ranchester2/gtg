@@ -721,7 +721,10 @@ class TaskEditor(Gtk.Window):
     def remove_subtask(self, tid):
         """Remove a subtask of this task."""
 
-        self.task.remove_child(tid)
+        try:
+            self.req.get_tasks_tree().unparent(tid, self.task.id)
+        except KeyError:
+            logging.WARN(f"{tid} is not a valid subtask.")
 
     def rename_subtask(self, tid, new_title):
         """Rename a subtask of this task."""

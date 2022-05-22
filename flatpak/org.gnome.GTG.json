@@ -58,7 +58,8 @@
       "buildsystem": "meson",
       "config-opts": [
       	"-Dbuild-tests=false",
-      	"-Dbuild-examples=false"
+      	"-Dbuild-examples=false",
+      	"-Dbuildtype=debug"
       ],
       "sources": [
         {
@@ -93,7 +94,7 @@
       "name": "python3-lxml",
       "buildsystem": "simple",
       "build-commands": [
-        "pip3 install --no-index --find-links=\"file://${PWD}\" --prefix=${FLATPAK_DEST} lxml"
+        "tar xf lxml-4.5.2.tar.gz && cd lxml-4.5.2 && python3 setup.py install --prefix=/app"
       ],
       "sources": [{
         "type": "file",
@@ -178,7 +179,8 @@
       ],
       "sources": [{
         "type": "git",
-        "url": "https://github.com/getting-things-gnome/liblarch"
+        "branch": "gtk4",
+        "url": "https://github.com/ranchester2/liblarch"
       }]
     },
     {

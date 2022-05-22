@@ -311,7 +311,7 @@ class TaskView(GtkSource.View):
             parent = task.parent
 
             # Remove if its not a child of this task
-            if parent.id != self.tid:
+            if not parent or parent.id != self.tid:
                 log.debug('Task %s is not a subtask of %s', tid, self.tid)
                 log.debug('Removing subtask %s from content', tid)
 

@@ -30,6 +30,8 @@ import string
 from GTG.core.tasks2 import TaskStore, Filter
 from GTG.core.tags2 import TagStore
 from GTG.core.saved_searches import SavedSearchStore
+from GTG.core.librview import LibrStore
+from GTG.core.rbilview import RbilTree
 from GTG.core import firstrun_tasks
 from GTG.core.dates import Date
 from GTG.core.requester import Requester
@@ -52,6 +54,8 @@ class Datastore2:
 
     def __init__(self) -> None:
         self.tasks = TaskStore()
+        self.tasks_rbil = RbilTree(self.tasks)
+        self.tasks_libr = LibrStore(self.tasks_rbil.get_viewtree())
         self.tags = TagStore()
         self.saved_searches = SavedSearchStore()
         self.xml_tree = None
